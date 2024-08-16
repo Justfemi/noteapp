@@ -1,42 +1,108 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NoteCard from '@/components/NoteCard'
 import EditModal from '@/components/EditNote';
 import Image from 'next/image';
 import EmptyImg from "../../../public/images/emptynote.png";
 import Link from 'next/link';
 import { LogOut } from 'lucide-react';
+import { db } from "../../../firebase";
+import { 
+  collection, 
+  addDoc, 
+  doc, 
+  updateDoc, 
+  getDocs, 
+  deleteDoc } from "@firebase/firestore";
 
 const Home: React.FC = () => {
-  const [notes, setNotes] = useState<string[]>([]);
+  const [notes, setNotes] = useState<{ id: string; content: string }[]>([]);
   const [newNote, setNewNote] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentNoteIndex, setCurrentNoteIndex] = useState<number | null>(null);
+  const [isFetchingNotes, setIsFetchingNotes] = useState(false);
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isDeletingNote, setIsDeletingNote] = useState(false);
 
   const handleEdit = (index: number) => {
     setCurrentNoteIndex(index);
     setIsModalOpen(true);
   };
 
-  const handleSaveNote = (value: string) => {
+  const handleSaveNote = async (value: string) => {
     if (currentNoteIndex !== null) {
-      const updatedNotes = [...notes];
-      updatedNotes[currentNoteIndex] = value;
+      setIsSavingNote(true);
+      try {
+        const noteDoc = doc(db, 'notes', notes[currentNoteIndex].id);
+        await updateDoc(noteDoc, {
+          content: value,
+        });
+  
+        const updatedNotes = [...notes];
+        updatedNotes[currentNoteIndex].content = value;
+        setNotes(updatedNotes);
+      } catch (e) {
+        console.error('Error updating document: ', e);
+      } finally {
+        setIsSavingNote(false);
+      }
+    }
+  };
+
+  const handleDelete = async (index: number) => {
+    setIsDeletingNote(true);
+    try {
+      const noteDoc = doc(db, 'notes', notes[index].id);
+      await deleteDoc(noteDoc);
+  
+      const updatedNotes = notes.filter((_, i) => i !== index);
       setNotes(updatedNotes);
+    } catch (e) {
+      console.error('Error deleting document: ', e);
+    } finally {
+      setIsDeletingNote(false);
     }
   };
 
-  const handleDelete = (index: number) => {
-    const updatedNotes = notes.filter((_, i) => i !== index);
-    setNotes(updatedNotes);
+  const fetchNotes = async () => {
+    setIsFetchingNotes(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'notes'));
+      const notesList = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        content: doc.data().content,
+      }));
+      setNotes(notesList);
+    } catch (e) {
+      console.error('Error fetching documents: ', e);
+    } finally {
+      setIsFetchingNotes(false);
+    }
   };
-
-  const handleAddNote = () => {
+  
+  
+  useEffect(() => {
+    fetchNotes();
+  }, []);
+  
+  const handleAddNote = async () => {
     if (newNote.trim()) {
-      setNotes([...notes, newNote]);
-      setNewNote('');
+      setIsAddingNote(true);
+      try {
+        const docRef = await addDoc(collection(db, 'notes'), {
+          content: newNote,
+          createdAt: new Date(),
+        });
+        setNotes([...notes, { id: docRef.id, content: newNote }]);
+        setNewNote('');
+      } catch (e) {
+        console.error('Error adding document: ', e);
+      } finally {
+        setIsAddingNote(false);
+      }
     }
-  };
+  };  
 
   return (
     <>
@@ -71,7 +137,7 @@ const Home: React.FC = () => {
           <div className="container mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
             {notes.map((note, index) => (
               <NoteCard
-                key={index}
+                key={note.id}
                 note={note}
                 onEdit={() => handleEdit(index)}
                 onDelete={() => handleDelete(index)}
@@ -86,7 +152,7 @@ const Home: React.FC = () => {
               width="300"
               className=""
             />
-            <h2 className='text-center text-purple-600 font-semibold text-lg'>Create and edit notes in real time with no dime </h2>
+            <h2 className='text-center text-purple font-semibold text-lg'>Create and edit notes in real time with no dime </h2>
             <p className='text-center mt-2'>No notes yet</p>
           </div>
         )}
@@ -96,7 +162,7 @@ const Home: React.FC = () => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveNote}
-          initialValue={notes[currentNoteIndex]}
+          initialValue={notes[currentNoteIndex].content}
         />
       )}
     </>
