@@ -3,17 +3,7 @@
   "builds": [
     {
       "src": "next.config.js",
-      "use": "@…/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "use": "@vercel/next"
     }
   ],
   "functions": {
