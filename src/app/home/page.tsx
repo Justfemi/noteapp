@@ -125,9 +125,10 @@ const Home: React.FC = () => {
         <div className='flex items-center justify-center'>
           <button
             onClick={handleAddNote}
+            disabled={isAddingNote}
             className="bg-purple text-white px-3 py-2 rounded hover:bg-[#BEADFF]"
           >
-            Create New Note
+            {isAddingNote ? 'Adding...' : 'Create New Note'}
           </button>
         </div>
       </div>
